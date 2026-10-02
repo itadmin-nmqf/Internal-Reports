@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project pages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #16324F;
+    --ink-soft: #4A6075;
+    --line: #D6DEE6;
+    --paper: #FFFFFF;
+    --wash: #F2F6F9;
+    --accent: #1F7A6B;
+    --accent-wash: #E3F2EF;
+    --danger: #A33A2E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #E4ECF3;
+      --ink-soft: #9DB0C2;
+      --line: #2C3E50;
+      --paper: #13202D;
+      --wash: #1A2A3A;
+      --accent: #5CC2AE;
+      --accent-wash: #1C3A37;
+      --danger: #F08C7F;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: "Public Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 64px; }
+
+  header { border-bottom: 3px solid var(--ink); padding-bottom: 20px; margin-bottom: 28px; }
+  h1 { font-size: 2.1rem; line-height: 1.15; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-soft); margin: 0 0 20px; }
+
+  .tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .search {
+    flex: 1 1 260px;
+    font: inherit;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--wash);
+    color: var(--ink);
+  }
+  .search:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--paper); }
+  .count { color: var(--ink-soft); font-size: 0.9rem; white-space: nowrap; }
+
+  section { margin-bottom: 32px; }
+  .group-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; }
+  h2 { font-size: 1.2rem; font-weight: 600; margin: 0; }
+  .group-path { color: var(--ink-soft); font-size: 0.85rem; }
+
+  ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  li { border-bottom: 1px solid var(--line); }
+  li a {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    padding: 12px 10px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  li a:hover { background: var(--accent-wash); }
+  li a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-wash); }
+  .title { font-weight: 500; }
+  li a:hover .title { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .file { color: var(--ink-soft); font-size: 0.85rem; text-align: right; word-break: break-all; }
+
+  .notice { padding: 16px 18px; border-left: 4px solid var(--accent); background: var(--wash); border-radius: 0 6px 6px 0; }
+  .notice.error { border-left-color: var(--danger); }
+  .notice p { margin: 0 0 6px; }
+  .notice p:last-child { margin: 0; }
+  code { background: var(--paper); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+
+  footer { margin-top: 40px; color: var(--ink-soft); font-size: 0.85rem; }
+
+  @media (max-width: 560px) {
+    h1 { font-size: 1.7rem; }
+    li a { flex-direction: column; gap: 2px; }
+    .file { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="page-title">Project pages</h1>
+    <p class="sub" id="page-sub">Select a page to open it.</p>
+    <div class="tools">
+      <input class="search" id="search" type="search" placeholder="Search pages" aria-label="Search pages">
+      <span class="count" id="count" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <main id="list"><div class="notice"><p>Loading pages…</p></div></main>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+/* ============================================================
+   SETTINGS — edit these if needed.
+   Leave owner and repo blank to detect them from the page URL
+   (works on https://OWNER.github.io/REPO/).
+   ============================================================ */
+const CONFIG = {
+  title: "Project pages",
+  subtitle: "Select a page to open it.",
+  owner: "",            // e.g. "itadmin-nmqf"
+  repo: "",             // e.g. "reports"
+  branch: "main",
+  folder: "docs",       // folder GitHub Pages publishes from; use "" if publishing from the repo root
+  openInNewTab: true,   // recommended when this page is embedded in Google Sites
+  exclude: ["index.html", "404.html"], // paths (relative to the folder) to hide
+  cacheMinutes: 5
+};
+
+/* ============================================================ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function detectRepo() {
+  let { owner, repo } = CONFIG;
+  const host = location.hostname;
+  if (!owner && host.endsWith(".github.io")) owner = host.replace(".github.io", "");
+  if (!repo && host.endsWith(".github.io")) {
+    const first = location.pathname.split("/").filter(Boolean)[0];
+    repo = first && !/\.html?$/i.test(first) ? first : host; // user site repo is OWNER.github.io
+  }
+  return { owner, repo };
+}
+
+function prettify(name) {
+  const base = name.replace(/\.html?$/i, "").replace(/[-_]+/g, " ").trim();
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : name;
+}
+
+async function fromGitHubApi(owner, repo) {
+  const key = `pages-index:${owner}/${repo}/${CONFIG.branch}/${CONFIG.folder}`;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (cached && Date.now() - cached.t < CONFIG.cacheMinutes * 60000) return cached.paths;
+  } catch (e) {}
+
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(CONFIG.branch)}?recursive=1`;
+  const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+  if (!res.ok) {
+    const err = new Error("api");
+    err.status = res.status;
+    err.rateLimited = res.headers.get("x-ratelimit-remaining") === "0";
+    throw err;
+  }
+  const data = await res.json();
+  const prefix = CONFIG.folder ? CONFIG.folder.replace(/^\/+|\/+$/g, "") + "/" : "";
+  const paths = (data.tree || [])
+    .filter(i => i.type === "blob" && i.path.startsWith(prefix) && /\.html?$/i.test(i.path))
+    .map(i => i.path.slice(prefix.length))
+    .filter(p => !p.split("/").some(seg => seg.startsWith(".") || seg.startsWith("_")));
+
+  try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), paths })); } catch (e) {}
+  return paths;
+}
+
+// Optional fallback: a pages.json file next to this index.html listing paths, e.g. ["project-a/index.html"]
+async function fromManifest() {
+  const res = await fetch("pages.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("no manifest");
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
+}
+
+function group(paths) {
+  const groups = new Map();
+  paths.forEach(p => {
+    const cut = p.lastIndexOf("/");
+    const dir = cut === -1 ? "" : p.slice(0, cut);
+    const file = cut === -1 ? p : p.slice(cut + 1);
+    if (!groups.has(dir)) groups.set(dir, []);
+    groups.get(dir).push({ path: p, file, title: prettify(file === "index.html" ? (dir.split("/").pop() || file) : file) });
+  });
+  const sorted = [...groups.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)));
+  sorted.forEach(([, items]) => items.sort((a, b) =>
+    (a.file === "index.html" ? -1 : b.file === "index.html" ? 1 : a.file.localeCompare(b.file))));
+  return sorted;
+}
+
+let ALL = [];
+
+function render(filter = "") {
+  const q = filter.trim().toLowerCase();
+  const target = CONFIG.openInNewTab ? ' target="_blank" rel="noopener"' : "";
+  let shown = 0;
+  const html = ALL.map(([dir, items]) => {
+    const visible = items.filter(i => !q || (i.title + " " + i.path).toLowerCase().includes(q));
+    if (!visible.length) return "";
+    shown += visible.length;
+    const heading = dir ? prettify(dir.split("/").pop()) : "General";
+    const pathNote = dir ? `<span class="group-path">${esc(dir)}/</span>` : "";
+    const rows = visible.map(i => `
+      <li><a href="${esc(i.path.split("/").map(encodeURIComponent).join("/"))}"${target} data-path="${esc(i.path)}">
+        <span class="title">${esc(i.title)}</span>
+        <span class="file">${esc(i.file)}</span>
+      </a></li>`).join("");
+    return `<section><div class="group-head"><h2>${esc(heading)}</h2>${pathNote}</div><ul>${rows}</ul></section>`;
+  }).join("");
+
+  const total = ALL.reduce((n, [, items]) => n + items.length, 0);
+  $("count").textContent = q ? `${shown} of ${total} pages` : `${total} page${total === 1 ? "" : "s"}`;
+  $("list").innerHTML = html || (total
+    ? `<div class="notice"><p>No pages match “${esc(filter)}”.</p></div>`
+    : `<div class="notice"><p>No pages yet. Upload an HTML file to the <code>${esc(CONFIG.folder || "repository root")}</code> folder and refresh this page.</p></div>`);
+}
+
+// Read each page's <title> so the list shows real names instead of file names.
+async function loadTitles() {
+  const items = ALL.flatMap(([, list]) => list);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const item = items[i++];
+      try {
+        const res = await fetch(item.path);
+        if (!res.ok) continue;
+        const text = await res.text();
+        const m = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        if (m) {
+          const t = new DOMParser().parseFromString(m[1], "text/html").documentElement.textContent.trim();
+          if (t) item.title = t;
+        }
+      } catch (e) {}
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, worker));
+  render($("search").value);
+}
+
+function showError(err, owner, repo) {
+  let msg;
+  if (err && err.rateLimited) {
+    msg = `<p>GitHub's hourly limit for listing files has been reached on this network.</p><p>Wait a few minutes and refresh the page.</p>`;
+  } else if (err && err.status === 404) {
+    msg = `<p>The file list for <code>${esc(owner)}/${esc(repo)}</code> on branch <code>${esc(CONFIG.branch)}</code> couldn't be read.</p>
+           <p>Check the owner, repo and branch in the settings at the bottom of this file. If the repository is private, add a <code>pages.json</code> file listing the pages instead.</p>`;
+  } else if (!owner || !repo) {
+    msg = `<p>The repository couldn't be detected from this address.</p><p>Set <code>owner</code> and <code>repo</code> in the settings at the bottom of this file.</p>`;
+  } else {
+    msg = `<p>The page list couldn't be loaded. Check your connection and refresh the page.</p>`;
+  }
+  $("list").innerHTML = `<div class="notice error">${msg}</div>`;
+  $("count").textContent = "";
+}
+
+async function init() {
+  document.title = CONFIG.title;
+  $("page-title").textContent = CONFIG.title;
+  $("page-sub").textContent = CONFIG.subtitle;
+
+  const { owner, repo } = detectRepo();
+  let paths, apiError = null;
+  try {
+    if (!owner || !repo) throw new Error("no repo");
+    paths = await fromGitHubApi(owner, repo);
+  } catch (e) {
+    apiError = e;
+    try { paths = await fromManifest(); } catch (e2) { paths = null; }
+  }
+  if (!paths) return showError(apiError, owner, repo);
+
+  const hidden = new Set(CONFIG.exclude.map(p => p.toLowerCase()));
+  ALL = group(paths.filter(p => !hidden.has(p.toLowerCase())));
+  render();
+  if (owner && repo) {
+    $("footer").innerHTML = `Pages are listed automatically from <code>${esc(owner)}/${esc(repo)}</code>. New pages appear within a few minutes of upload.`;
+  }
+  loadTitles();
+}
+
+$("search").addEventListener("input", e => render(e.target.value));
+init();
+</script>
+</body>
+</html>
